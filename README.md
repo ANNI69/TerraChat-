@@ -14,10 +14,6 @@ Terra Chat is a "grounded" chat experience built with React + Vite, using:
 
 ![Terra Chat - settings](assets/images/2.png)
 
-## Live demo
-
-If you're using this as an AI Studio applet, you can view it here:
-https://ai.studio/apps/19ba9834-0e9b-402a-9f45-738e6bf815ea
 
 ## Set up locally
 
