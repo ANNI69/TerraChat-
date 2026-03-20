@@ -759,14 +759,6 @@ function ChatScreen({ profile, onNavigate, activeChatId, setActiveChatId }: {
             <MessageSquare className="w-6 h-6" />
             <span className="text-[10px] font-bold uppercase">Chat</span>
           </button>
-          <button className="flex flex-col items-center text-outline">
-            <History className="w-6 h-6" />
-            <span className="text-[10px] font-bold uppercase">History</span>
-          </button>
-          <button className="flex flex-col items-center text-outline">
-            <Compass className="w-6 h-6" />
-            <span className="text-[10px] font-bold uppercase">Discover</span>
-          </button>
           <button onClick={() => onNavigate('settings')} className="flex flex-col items-center text-outline">
             <SettingsIcon className="w-6 h-6" />
             <span className="text-[10px] font-bold uppercase">Settings</span>
