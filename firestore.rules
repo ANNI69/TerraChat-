@@ -1,0 +1,128 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (UID)
+    // Fields:
+    //   - uid: string (required)
+    //   - displayName: string
+    //   - email: string (required, PII)
+    //   - photoURL: string
+    //   - role: string (enum: user, admin)
+    //   - settings: map (darkMode, themeAccent, aiLanguage, speechSpeed, autoPlayResponses)
+    //   - createdAt: timestamp
+    //
+    // Collection: chats
+    // Document ID: chatId
+    // Fields:
+    //   - id: string
+    //   - userId: string (required)
+    //   - title: string
+    //   - lastMessage: string
+    //   - updatedAt: timestamp
+    //   - createdAt: timestamp
+    //
+    // Collection: messages (subcollection of chats)
+    // Document ID: messageId
+    // Fields:
+    //   - id: string
+    //   - chatId: string (required)
+    //   - userId: string
+    //   - role: string (enum: user, model)
+    //   - content: string (required)
+    //   - thinking: string
+    //   - createdAt: timestamp
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'admin') ||
+          (request.auth.token.email == "codebyanii@gmail.com" && request.auth.token.email_verified == true)
+        );
+    }
+
+    function isChatOwner(chatId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/chats/$(chatId)) && 
+             get(/databases/$(database)/documents/chats/$(chatId)).data.userId == request.auth.uid;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.uid is string &&
+             data.email is string &&
+             data.email.size() < 254;
+    }
+
+    function isValidChat(data) {
+      return data.keys().hasAll(['userId', 'createdAt']) &&
+             data.userId is string &&
+             (data.userId == request.auth.uid || isAdmin());
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['chatId', 'role', 'content', 'createdAt']) &&
+             data.chatId is string &&
+             data.role in ['user', 'model'] &&
+             data.content is string &&
+             data.content.size() < 10000;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      // Users can only read their own profile (PII protection)
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Create: Only owner can create their profile, and cannot set themselves as admin
+      allow create: if isOwner(userId) && 
+                      isValidUser(request.resource.data) && 
+                      (request.resource.data.get('role', 'user') == 'user' || isAdmin());
+      
+      // Update: Only owner can update, and cannot change their role unless admin
+      allow update: if (isOwner(userId) && 
+                       isValidUser(request.resource.data) && 
+                       request.resource.data.get('role', 'user') == resource.data.get('role', 'user')) || 
+                    isAdmin();
+    }
+
+    match /chats/{chatId} {
+      // Users can only read/write their own chats
+      allow read: if isAuthenticated() && (isAdmin() || resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && isValidChat(request.resource.data);
+      allow update: if isAuthenticated() && 
+                      (isAdmin() || resource.data.userId == request.auth.uid) && 
+                      isValidChat(request.resource.data);
+      allow delete: if isAuthenticated() && (isAdmin() || resource.data.userId == request.auth.uid);
+
+      match /messages/{messageId} {
+        // Inherit chat ownership check
+        allow read: if isAuthenticated() && (isAdmin() || isChatOwner(chatId));
+        allow create: if isAuthenticated() && 
+                        (isAdmin() || isChatOwner(chatId)) &&
+                        isValidMessage(request.resource.data);
+        allow update, delete: if isAdmin();
+      }
+    }
+  }
+}

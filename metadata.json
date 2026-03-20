@@ -1,0 +1,5 @@
+{
+  "name": "Terra Chat",
+  "description": "A grounded, organic AI chat experience rooted in thoughtful conversation.",
+  "requestFramePermissions": ["microphone"]
+}
